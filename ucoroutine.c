@@ -2,34 +2,40 @@
  * Copyright (C) 2014 FillZpp
  */
 
-#include <stddef.h>      // for size_t
-
 #include "ucoroutine.h"
 
 #define U_READY 0
 #define U_RUNNING 1
+#define U_SUSPEND 2
 
 
 struct u_coroutine {
-    struct u_coroutine *next;
+    int status;
+    size_t id;
     cor_func_t func;
     void *arg;
+    char *stack;
+    struct u_coroutine *next;
+    pthread_t *ptd;
 };
 
 struct u_sched {
-    size_t count;
     struct u_coroutine *cor_ready;
+    struct u_coroutine *cor_running;
+    struct u_coroutine *cor_suspend;
     pthread_mutex_t mutex;
+    pthread_cond_t cond;
 };
 
 
 /* global variables */
 static int status = U_READY;
-static int cor_id = 0;
+static size_t u_cor_id = 0;
+static ptd_cap = 0;
 static pthread_mutex_t mutex_ = PTHREAD_MUTEX_INITIALIZER;
-static int u_threads_cap = 0;
 static pthread_t **pool = NULL;
 static struct u_sched *schedule = NULL;
+static __thread pthread_t *current_ptd = NULL;
 
 /* threads static functions */
 static void u_run_coroutine(struct u_coroutine *cor);
@@ -42,35 +48,40 @@ static void u_pool_init(int num);
 /* ====================================================== */
 /*             Definition for threads function            */
 /* ====================================================== */
-void u_thread_func()
+static void u_run_coroutine(struct u_coroutine *cor)
+{
+    cor->status = U_RUNNING;
+    cor->ptd = current_ptd;
+}
+
+static void u_thread_func(void *ptd)
 {
     struct u_coroutine *cor;
+    current_ptd = ptd;
     while (status) {
         pthread_mutex_lock(&schedule->mutex);
-        while (schedule->count == 0)
-            pthread_cond_wait(&cond_, &schedule->mutex_);
+        while (schedule->cor_ready == NULL)
+            pthread_cond_wait(&schedule->cond, &schedule->mutex);
         
-        if (schedule->cor_ready != NULL) {
-            cor = schedule->cor_ready;
-            schedule->cor_ready = cor->next;
-            schedule->count--;
-            
-            u_run_coroutine(cor);
-        }
+        cor = schedule->cor_ready;
+        schedule->cor_ready = cor->next;
+        cor->next = schedule->running;
+        schedule->running = cor;
         pthread_mutex_unlock(&schedule->mutex);
+        u_run_coroutine(cor);
     }
 }
 
-void u_pool_init(int num)
+static void u_pool_init(int num)
 {
     int i;
     pthread_t *ptd;
-    u_thread_cap = num;
-    
+    ptd_cap = num;
+    pool = malloc(num*sizeof(ptd));
     for (i=0; i<num; ++i) {
         ptd = malloc(sizeof(*ptd));
         pool[i] = ptd;
-        pthread_create(ptd, NULL, (void*)u_thread_func, NULL);
+        pthread_create(ptd, NULL, (void*)u_thread_func, (void*)ptd);
     }
 }
 
@@ -83,13 +94,13 @@ int u_sched_open(int num)
     int ret = -1;
     pthread_mutex_lock(&mutex_);
     if (status == U_READY) {
-        cor_id = 0;
-        /* Initialize schedule and pool */
+        /* Initialize schedule */
         schedule = malloc(sizeof(*schedule));
         pthread_mutex_init(&schedule->mutex);
         pthread_cond_init(&schedule->cond, PTHREAD_PROCESS_PRIVATE);
         schedule->count = 0;
         schedule->cor_ready = NULL;
+        /* Initialize threads pool */
         if (num > 0)
             u_pool_init(num);
 
