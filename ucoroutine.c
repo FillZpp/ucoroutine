@@ -20,6 +20,7 @@ struct u_coroutine {
 };
 
 struct u_sched {
+    struct u_coroutine *cor_new;
     struct u_coroutine *cor_ready;
     struct u_coroutine *cor_running;
     struct u_coroutine *cor_suspend;
@@ -30,7 +31,7 @@ struct u_sched {
 
 /* global variables */
 static int status = U_READY;
-static size_t u_cor_id = 0;
+static size_t u_cor_id = 1;
 static ptd_cap = 0;
 static pthread_mutex_t mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static pthread_t **pool = NULL;
@@ -112,5 +113,29 @@ int u_sched_open(int num)
     return ret;
 }
 
+
+/* ====================================================== */
+/*          Definition for coroutine functions            */
+/* ====================================================== */
+size_t u_coroutine_register(cor_func_t func, void *arg)
+{
+    if (status)
+        return -1;
+    struct u_coroutine *cor = malloc(sizeof(*cor));
+    pthread_mutex_lock(&mutex_);
+    cor->id = u_cor_id++;
+    pthread_mutex_unlock(&mutex_);
+    cor->func = func;
+    cor->arg = arg;
+    pthread_mutex_lock(&schedule->mutex);
+    cor->next = schedule->new;
+    schedule->new = cor;
+    pthread_mutex_unlock(&schedule->mutex);
+    return cor->id;
+}
+
+int u_coroutine_resume(size_t cor_id)
+{
+}
 
     
