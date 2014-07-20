@@ -98,7 +98,7 @@ int u_sched_open(int num)
         /* Initialize schedule */
         schedule = malloc(sizeof(*schedule));
         pthread_mutex_init(&schedule->mutex);
-        pthread_cond_init(&schedule->cond, PTHREAD_PROCESS_PRIVATE);
+        pthread_cond_init(&schedule->cond, NULL);
         schedule->count = 0;
         schedule->cor_ready = NULL;
         /* Initialize threads pool */
@@ -136,6 +136,7 @@ size_t u_coroutine_register(cor_func_t func, void *arg)
 
 int u_coroutine_resume(size_t cor_id)
 {
+    
 }
 
     
