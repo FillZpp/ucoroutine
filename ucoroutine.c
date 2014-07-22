@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <ucontext.h>
 #include "ucoroutine.h"
 
 #define U_READY 0
@@ -17,6 +18,7 @@ struct u_coroutine {
     int status;
     size_t id;
     pthread_mutex_t mutex;
+    ucontext_t ctx;
     cor_func_t func;
     void *arg;
     char *stack;
@@ -40,9 +42,9 @@ struct u_sched {
 /* global variables */
 static int status = U_READY;
 static size_t u_cor_id = 1;
-static ptd_cap = 0;
 static pthread_mutex_t mutex_ = PTHREAD_MUTEX_INITIALIZER;
-static pthread_t **pool = NULL;
+static ptd_cap = 0;
+static pthread_t **ptd_pool = NULL;
 static struct u_sched *schedule = NULL;
 static __thread pthread_t *current_ptd = NULL;
 
@@ -88,10 +90,10 @@ static void u_pool_init(int num)
     int i;
     pthread_t *ptd;
     ptd_cap = num;
-    pool = malloc(num*sizeof(ptd));
+    ptd_pool = malloc(num*sizeof(ptd));
     for (i=0; i<num; ++i) {
         ptd = malloc(sizeof(*ptd));
-        pool[i] = ptd;
+        ptd_pool[i] = ptd;
         pthread_create(ptd, NULL, (void*)u_thread_func, (void*)ptd);
     }
 }
