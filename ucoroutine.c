@@ -2,11 +2,13 @@
  * Copyright (C) 2014 FillZpp
  */
 
+
+#include "ucoroutine.h"
+
 #include <assert.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <ucontext.h>
-#include "ucoroutine.h"
 
 #define U_READY 0
 #define U_RUNNING 1
