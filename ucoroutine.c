@@ -156,9 +156,6 @@ u_coroutine_t *u_coroutine_register(cor_func_t func, void *arg)
 int u_coroutine_resume(u_coroutine_t *cor)
 {
 	assert(cor);
-	if (status)
-		return -1;
-    
 }
 
     
